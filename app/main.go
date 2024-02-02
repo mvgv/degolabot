@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -21,10 +22,11 @@ type Command struct {
 }
 
 func main() {
-	token := "MTE4NzgxMzA1Njc4MTIzNDMxNw.GnoBFF.Zj8ZyUdXFAGOUTd9VR9pId8smC55xL8zgrz3nI"
+	token := flag.String("token", "", "Token do bot do Discord")
+	flag.Parse()
 
 	var err error
-	dg, err = discordgo.New("Bot " + token)
+	dg, err = discordgo.New("Bot " + *token)
 	if err != nil {
 		log.Fatal("Erro ao criar a sessão do Discord:", err)
 		return
