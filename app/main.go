@@ -15,8 +15,13 @@ var (
 	queue []string
 )
 
+type Command struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 func main() {
-	token := "TOKEN_DO_SEU_BOT_DISCORD"
+	token := "MTE4NzgxMzA1Njc4MTIzNDMxNw.GnoBFF.Zj8ZyUdXFAGOUTd9VR9pId8smC55xL8zgrz3nI"
 
 	var err error
 	dg, err = discordgo.New("Bot " + token)
@@ -25,7 +30,7 @@ func main() {
 		return
 	}
 
-	dg.AddMessageCreateHandler(messageCreate)
+	dg.AddHandler(commandHandler)
 
 	err = dg.Open()
 	if err != nil {
@@ -41,27 +46,81 @@ func main() {
 	<-sc
 }
 
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
+func commandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if i.Type != discordgo.InteractionApplicationCommand {
 		return
 	}
 
-	if m.Content == "/play" {
-		s.ChannelMessageSend(m.ChannelID, "Tocando música!")
-		// Aqui você conectaria o bot a um reprodutor de música, mas para esta etapa, vamos apenas enviar a mensagem.
-	} else if m.Content == "/stop" {
-		s.ChannelMessageSend(m.ChannelID, "Música parada!")
-		// Aqui você pararia a música que está sendo reproduzida, mas para esta etapa, enviamos apenas a mensagem.
-	} else if m.Content == "/list" {
-		if len(queue) == 0 {
-			s.ChannelMessageSend(m.ChannelID, "Não há músicas na lista.")
+	data := i.ApplicationCommandData()
+	switch data.Name {
+	case "play":
+
+		voiceChannelID, err := findUserVoiceChannel(s, i.GuildID, i.Interaction.Member.User.ID)
+		if err != nil {
+			fmt.Println("Erro ao encontrar o canal de voz do usuário:", err)
 			return
 		}
+		if voiceChannelID != "" {
+			if !isBotInVoiceChannel(s, i.GuildID, voiceChannelID) {
+				_, err := joinVoiceChannel(s, i.GuildID, voiceChannelID)
+				if err != nil {
+					fmt.Println("Erro ao entrar no canal de voz:", err)
+					return
+				}
 
-		message := "Lista de músicas na fila:\n"
-		for i, song := range queue {
-			message += fmt.Sprintf("%d. %s\n", i+1, song)
+				fmt.Println("Bot entrou no canal de voz do autor da mensagem")
+			}
 		}
-		s.ChannelMessageSend(m.ChannelID, message)
+
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "https://open.spotify.com/playlist/5z2dTZUjDD90wM4Z9youwS?si=407acac85d6f4b08",
+			},
+		})
+	case "parar":
+		// Lógica para o comando /parar
+	case "lista":
+		// Lógica para o comando /lista
+	default:
+		// Mensagem para o caso de um comando desconhecido
 	}
+}
+
+func joinVoiceChannel(s *discordgo.Session, guildID, channelID string) (*discordgo.VoiceConnection, error) {
+	voiceConnection, err := s.ChannelVoiceJoin(guildID, channelID, false, true)
+	if err != nil {
+		return nil, err
+	}
+	return voiceConnection, nil
+}
+
+func findUserVoiceChannel(s *discordgo.Session, guildID, userID string) (string, error) {
+
+	guild, err := s.State.Guild(guildID)
+	if err != nil {
+		return "", err
+	}
+
+	for _, vs := range guild.VoiceStates {
+		fmt.Print("VoiceStateUser: " + vs.UserID)
+		fmt.Print("ParamUser: " + userID)
+		if vs.UserID == userID {
+			return vs.ChannelID, nil
+		}
+	}
+
+	return "", fmt.Errorf("Usuário não encontrado no canal de voz")
+}
+
+func isBotInVoiceChannel(s *discordgo.Session, guildID, channelID string) bool {
+	voiceConnections := s.VoiceConnections
+
+	for _, voiceConnection := range voiceConnections {
+		if voiceConnection.GuildID == guildID && voiceConnection.ChannelID == channelID {
+			return true
+		}
+	}
+
+	return false
 }
